@@ -1,0 +1,756 @@
+---
+title: "Unlocking the Secrets Behind World University Rankings"
+author: "Honorine Akoguteta, Nastaran Mesgari, Simon Addae."
+date: today
+output:
+  html:
+    toc: true  
+    toc-depth: 2  
+    number-sections: true  
+    code-fold: true  
+    code-tools: true  
+    
+  pdf:
+    toc: true  
+execute:
+  kernel: R  
+  echo: false
+  warning: false
+  message: false
+  citation: true
+bibliography: references.bib
+---
+
+
+This slide deck is a presentation of the main insights:
+
+```{=html}
+<iframe class="slide-deck" style="border:1px solid lightgray;" width="100%" height="500" src="Finalpresentation.html"></iframe>
+```
+
+[Presentation in standalone browser tab.](Finalpresentation.html){.internal target="_blank"}
+
+# Abstract
+
+The Times Higher Education World University Rankings (THEWUR) provide a comprehensive assessment of research-intensive universities, using five key metrics: Teaching, Research, Citations, Industry Income, and International Outlook. Examining trends in the top 150 universities' global rankings, this study investigates how various indicators interact and affect rankings. Through data-driven insights and visualisations, the study reveals instances of specialisation where schools maintain high rankings while excelling in particular metrics, highlighting the balance necessary for overall performance. Beyond the 149th position, rankings are handled differently, with institutions combined into rank intervals rather than separate ranks. This makes it difficult to differentiate performance at this level. This paper provides policymakers, university administrators, and students with helpful advice on how to properly understand these rankings and use them for strategic planning.
+
+# Introduction
+
+Since its launch in 2004, the Times Higher Education World University Rankings (THEWUR) have served as a reliable standard for assessing the performance of universities that prioritise research. These rankings use five key metrics—teaching, research, citations, industry income, and international outlook—to give a comprehensive picture of institution performance. From research impact and academic prestige to international participation and industry partnership, each statistic represents an important aspect of institutional performance [@the2024].
+
+In this analysis, we focus on the top 150 universities, as their performance sets a benchmark for academic excellence globally. The way that THEWUR manages rankings is one of its unique features. Instead of assigning exact rankings, some universities from the 150th rank onwards are categorised into intervals, like "201–250" or "501–600." This approach reflects the difficulties of accurately distinguishing performance at these levels, where the differences in scores tend to be the same or very small. The average of those intervals was determined for this study, and all of the universities in the same interval were given the same rank. For stakeholders looking to compare institutions within these intervals, this restricts accuracy though it enables us to do our visualisation. We ould advise the stakeholders to specifically look into the scores of each university, as some of our interactive visualizations provide this opportunity. 
+
+Our study employs a range of visualizations to explore the intricate dynamics of university rankings, focusing on the correlation between metrics and overall rank. The goal is to equip policymakers, academia, and students with useful information so they can properly understand and apply these rankings. This study offers a detailed perspective of what it takes to obtain high ranks by analysing patterns of specialisation and balance.
+
+
+# Audience Description
+
+• **Administrators of Universities:** Deans and presidents are examples of people who oversee academic institutions. They want to know how their university stands up against others based on various indicators. They would use this analysis to inform strategic choices about curriculum development, staffing, and finance.
+
+• **Educational Policy Makers:** These are representatives of the government or organisations in charge of shaping educational policy. Their relevance to the subject is in seeing patterns that support policy-making, such as places where research funding, international cooperation, and general academic achievement need to be improved.
+
+• **Potential Foreign Students:** People who are thinking about enrolling at universities around the world make up this audience. Their decision-making will be influenced by their interest in these rankings, which show which universities provide the greatest chances for education, research, and global exposure.
+
+
+```{r}
+#| label: packages
+
+# These are the packages used in the report
+library(dplyr)
+library(tidyverse)  
+library(readr)      
+library(ggplot2) 
+library(dbplyr)
+library(plotly)
+library(tidyr)
+library(reshape2)
+library(corrplot)
+library(sf)
+library(rnaturalearth)
+library(rnaturalearthdata)
+library(GGally)
+library(leaflet)
+library(fmsb)
+library(ggradar)
+library(kableExtra)
+library(knitr)
+```
+
+
+```{r}
+world_university_rankings_2025 <- read_csv("world_university_rankings_2025.csv")
+```
+
+```{r}
+world_university_rankings_2025 <- world_university_rankings_2025 %>%
+  
+  mutate(rank_clean = gsub("[^0-9\\-]", "", rank)) %>%
+  
+  
+  mutate(rank_clean = ifelse(str_detect(rank_clean, "-"), 
+                             as.numeric(sapply(str_split(rank_clean, "-"), function(x) mean(as.numeric(x)))), 
+                             as.numeric(rank_clean))) %>%
+  
+  
+  mutate(rank_clean = as.numeric(rank_clean))
+
+```
+
+```{r}
+
+top_150_universities <- world_university_rankings_2025 %>%
+  mutate(
+    rank = as.numeric(gsub("[^0-9]", "", rank)), 
+    scores_overall = as.numeric(scores_overall),
+    scores_teaching = as.numeric(scores_teaching),
+    scores_research = as.numeric(scores_research),
+    scores_citations = as.numeric(scores_citations),
+    scores_industry_income = as.numeric(scores_industry_income),
+    scores_international_outlook = as.numeric(scores_international_outlook),
+    stats_number_students = as.numeric(gsub(",", "", stats_number_students)), 
+    stats_student_staff_ratio = as.numeric(stats_student_staff_ratio)
+  ) 
+```
+
+```{r}
+
+
+top_150_universities <- top_150_universities %>%
+  mutate(across(c(rank, scores_teaching, scores_research, scores_citations, scores_industry_income, scores_international_outlook), 
+                ~ as.numeric(as.character(.))))
+```
+
+
+
+
+# Key Metrics 
+
+**1. Teaching**
+
+This metric assesses the learning environment at universities. It includes factors such as the reputation for teaching, student-to-staff ratio, and institutional income. A strong teaching score indicates a university's commitment to providing quality education and support for its students [@the2024].
+
+**2. Research Environment**
+
+This metric evaluates the university's research capacity and environment. It considers aspects such as research reputation, income, and productivity. A robust research environment reflects a university's ability to support high-quality research activities and attract funding [@the2024].
+
+**3. Research Quality**
+
+This metric measures the quality of research produced by the institution. It includes indicators like citation impact, research strength, and research excellence. High scores in this area indicate that a university's research output is widely recognized and influential within the academic community [@the2024].
+
+**4. International Outlook**
+
+This metric assesses the university's ability to attract international students and staff, as well as its global collaborations. A strong international outlook score reflects a diverse academic community and the institution's engagement with global educational networks [@the2024].
+
+**5. Industry Income**
+
+This metric measures the university's ability to generate income from industry partnerships and knowledge transfer activities. It indicates how effectively an institution engages with businesses and contributes to economic development through research and innovation [@the2024].
+
+
+# World University Ranking 2025
+
+
+## Weighted Scores 
+
+Teaching, Research Environment, Research Quality, International Outlook, and Industry Income are the five main indicators that are given distinct weights in the Times Higher Education (THE) World University Rankings 2025. Every indicator is intended to represent important facets of university success, and their weights are established according to how significant they are in assessing the overall efficacy and influence of organisations [@the2024].
+
+
+
+```{r}
+#| label: fig-metric-weights
+#| fig-cap: "Weights of Metrics in University Rankings"
+
+metric_weights <- data.frame(
+  Metric = c("Teaching", "Research Environment", "Research Quality", "International Outlook", "Industry Income"),
+  Weight = c(29.5, 29, 30, 7.5, 4)
+)
+
+
+donut_chart <- plot_ly(
+  metric_weights,
+  labels = ~Metric,
+  values = ~Weight,
+  type = 'pie',
+  hole = 0.5,  
+  textinfo = "label+percent",
+  hoverinfo = "label+value"
+) %>%
+  layout(
+    title = "Weights of Metrics in University Rankings",
+    showlegend = TRUE
+  )
+
+donut_chart
+```
+
+
+
+The **Times Higher Education (THE) World University Rankings 2025** employs a carefully structured methodology that assigns specific weights to five key metrics: Teaching, Research Environment, Research Quality, International Outlook, and Industry Income. Every metric is intended to represent important facets of university success, and their weights are established according to how significant they are in assessing the overall ability and influence of institutions [@the2024]. A thorough explanation of the rationale behind the weights given to each metric, together with information on its sub-metrics and weighting method, may be found below.
+
+![Image from THE showing the overview of the metrics and submetrics weights](7fe7172abc09ad504f02e70a431b6b56-785x569.png) {fig:submetrics weights}
+
+
+#### 1. Teaching (29.5%)
+Teaching is fundamental to a university's mission. This metric evaluates the quality of the learning environment and the overall educational experience provided to students. A strong focus on teaching ensures that universities prioritize student success and engagement [@the2024].
+
+**Sub-metrics**:
+
+- **Teaching Reputation**: Based on an academic survey where scholars nominate institutions recognized for excellence in teaching.
+
+- **Student-Staff Ratio**: Measures the number of students per academic staff member, indicating the level of attention students may receive.
+
+- **Doctorate-Bachelor Ratio**: Assesses the proportion of doctoral degrees awarded relative to bachelor’s degrees, reflecting the institution's commitment to advanced education.
+
+- **Doctorate-Staff Ratio**: Evaluates the number of doctoral staff members relative to total staff, indicating research capability among teaching staff.
+
+- **Institutional Income**: Considers financial resources available for teaching activities.
+
+#### 2. Research Environment (29%)
+The research environment is critical for fostering innovation and academic inquiry. This metric reflects how well universities support research activities, which are essential for generating new knowledge and contributing to societal advancement [@the2024].
+
+**Sub-metrics**:
+
+- **Research Reputation**: Derived from the same academic survey used for teaching reputation, indicating perceived research quality.
+
+- **Research Income**: Measures funding received for research activities, demonstrating financial support for research initiatives.
+
+- **Research Productivity**: Assesses the volume of research output relative to institutional capacity.
+
+#### 3. Research Quality (30%)
+Research quality is vital in determining a university's impact on global knowledge. This metric evaluates not just the quantity but also the significance and influence of research outputs, which are crucial for establishing a university's reputation [@the2024].
+
+**Sub-metrics**:
+
+- **Citation Impact**: Reflects how often publications from an institution are cited by others, indicating their influence in academia.
+
+- **Research Strength**: Calculated as the 75th percentile Field Weighted Citation Impact (FWCI) of all papers published by an institution, providing insights into high-quality research outputs.
+
+- **Research Excellence**: Counts publications in the top 10% by FWCI, normalized by year and subject, highlighting exceptional research contributions.
+
+- **Research Influence**: Measures the importance of citing papers, assessing thought leadership within scholarly communities.
+
+#### 4. International Outlook (7.5%)
+The international outlook metric reflects a university's global engagement and diversity. It indicates how well institutions attract international talent and collaborate across borders, which enhances educational experiences and research opportunities (@the2024).
+
+**Sub-metrics**:
+
+- **International Students**: The proportion of students from outside the host country.
+
+- **International Staff**: The percentage of academic staff from other countries.
+
+- **International Co-authorship**: Measures collaborative publications with international researchers.
+
+#### 5. Industry Income (2.5%)
+While industry income is important, it is given a lower weight compared to other metrics because it primarily reflects economic engagement rather than core educational or research missions. However, it still highlights a university's ability to transfer knowledge to industry and contribute to economic development [@the2024].
+
+**Sub-metrics**:
+
+- **Industry Income**: Revenue generated from industry partnerships and collaborations.
+
+- **Patents (not used this year)**: Previously included as a measure of innovation but not counted in this ranking cycle.
+
+
+Prioritising measures that accurately represent a university's primary missions—teaching and research—while simultaneously recognising global involvement and industry partnership is the goal of THE World University Rankings' weighting system. THE highlights the fundamental components that lead to academic success by giving Teaching, Research Environment, and Research Quality larger weights (30% each). Rather than being key metrics in and of themselves, Industry Income (2.5%) and International Outlook (7.5%) have lower weights, which reflects their supporting responsibilities in raising overall university success. With this careful methodology, rankings are guaranteed to offer significant insights into the performance of universities and support well-informed decision-making for institutional leaders, students, and policymakers [@the2024].
+
+
+
+## Normalization
+
+In the Times Higher Education (THE) World University Rankings, scores from different categories are transformed into a common scale through a systematic normalization process before being combined into an overall score [@the2024]. Here’s how this process works:
+
+#### Normalization Process
+
+**1. Standardization of Scores**
+Each category score is standardized to ensure comparability. For instance, metrics like the Field Weighted Citation Impact (FWCI) are normalized against discipline-specific averages, allowing institutions to be evaluated on a consistent basis regardless of their research focus [@the2024].
+
+**2. Use of Percentiles**
+Metrics such as Research Strength are calculated using the 75th percentile FWCI, which provides a view of research quality that is less influenced by outliers. This percentile approach helps to create a common scale that reflects the relative performance of institutions within their respective fields [@the2024].
+
+**3. Weighting Mechanism**
+Each category has a predetermined weight that reflects its importance in the overall ranking. For example, Teaching and Research Quality are weighted at 30% each, while Industry Income is only 2.5%. These weights are applied to the normalized scores from each category to calculate the overall score [@the2024].
+
+#### Combining Scores into an Overall Score
+
+**4. Aggregation of Weighted Scores**
+After normalization, the scores from each category are multiplied by their respective weights and then summed to produce an overall score for each institution [@the2024]. 
+  
+**5. Zero Allocation for No Votes**
+If an institution receives no votes in the academic reputation survey for a specific category, it is assigned a zero score for that metric. This ensures that universities without recognition do not receive inflated scores [@the2024].
+
+**6. Statistical Adjustments**
+THE employs statistical methods to adjust scores based on factors such as self-voting caps and vote concentration analysis. This ensures that no single institution can unduly influence its own score through internal voting practices [@the2024].
+
+Through these normalization techniques and weighting mechanisms, THE ensures that scores from different categories are transformed into a common scale that allows for fair comparisons among institutions. The final overall score reflects a balanced assessment of university performance across multiple critical dimensions while maintaining transparency and integrity in the ranking process [@the2024].
+
+## Data Collection Processs
+
+The Times Higher Education (THE) World University Rankings gathers data from a variety of sources to ensure a comprehensive and reliable evaluation of universities [@the2024]. Here are the primary sources of data used in the rankings:
+
+**1. Institutional Data**
+
+Self-Submission: Universities provide their own data through the THE Portal. This includes information on teaching, research output, income, and other relevant metrics for the academic year ending in 2022. Each institution must confirm that the data submitted is accurate and complete [@the2024].
+
+**2. Bibliometric Data**
+
+Elsevier: THE relies on bibliometric data from Elsevier, which includes over 157 million citations to journal articles, conference proceedings, and other academic publications. This data is sourced from Scopus, covering more than 30,000 active peer-reviewed journals. The bibliometric measures help assess research quality and impact through metrics like Field Weighted Citation Impact (FWCI) [@the2024].
+
+**3. Academic Reputation Survey**
+
+THE conducts an annual academic reputation survey where scholars nominate institutions they perceive as leaders in teaching and research. This survey is designed to gather insights from a diverse pool of academics across various disciplines and countries.The latest survey received over 93,000 responses and was weighted to ensure balanced representation across disciplines and countries [@the2024].
+
+**4. Reference Datasets**
+
+THE incorporates various external datasets to validate and supplement institutional submissions. Key sources include:
+**World Bank**: For purchasing power parity (PPP) data and population statistics.
+**UNESCO**: For information on the distribution of scholars globally.
+**HM Revenue and Customs**: For accurate foreign exchange rates.
+**Other governmental and non-governmental datasets for quality checking.**
+
+**5. Quality Assurance Measures**
+The data collection process includes automatic validation checks to ensure completeness and accuracy before submission. This helps maintain the integrity of the data used in rankings.
+
+By utilizing these diverse sources—self-submitted institutional data, bibliometric data from Elsevier, insights from academic surveys, and various reference datasets—THE ensures that its rankings are based on a robust foundation of reliable information. This comprehensive approach allows for fair comparisons among universities worldwide while reflecting their performance across key areas such as teaching, research, international outlook, and industry income [@the2024].
+
+# Main Insight
+
+## A Glimpse in the Raw Data
+
+```{r raw_data_table, echo=FALSE}
+print(top_150_universities)
+```
+
+**2,857 rows and 34 columns** make up the raw dataset, which shows the performance of colleges around the world on a variety of metrics. A university's overall ranking, scores in important metrics, and other data like the number of students, student-to-staff ratio, and percentage of international students are all recorded in the columns. Each row represents a university.
+
+The majority of our visualisations concentrate on the **top 150 universities** in order to guarantee clarity and insightful analysis. Several factors led to this decision: 
+
+1. **Global Relevance**: The top 150 universities represent institutions that are globally competitive and influential in education and research, making them ideal for comparing performance metrics.  
+2. **Data Reliability**: The higher-ranked institutions tend to have more consistent and reliable data, reducing noise from missing or inconsistent entries often observed in lower-ranked universities.  
+3. **Actionable Insights**: Focusing on the top-performing institutions allows us to identify trends and patterns that are most relevant to prospective students, policymakers, and university administrators striving for excellence.  
+4. **Balanced Coverage**: Analyzing 150 universities strikes a balance between a manageable dataset size and the depth of insights, ensuring that findings are comprehensive yet not overwhelming.  
+
+The dataset includes a global rank (`rank`) and scores for overall performance (`scores_overall`) as well as individual metrics such as teaching, research, and citations. These scores provide a multi-dimensional view of university performance. The dataset captures universities from various countries, offering an opportunity to explore differences in performance across geographic boundaries. Additional columns include `stats_number_students`, `stats_student_staff_ratio`, and `stats_pc_intl_students`, enabling deeper insights into institutional resources and student demographics.  
+
+
+## Top 10 Universities in 2025  
+
+
+```{r}
+#| label: fig-top-uni
+#| fig-cap: "10 Best Universities for 2025"
+
+top_10_universities <- head(top_150_universities, 10) %>%
+  arrange(rank)
+
+
+top_10_universities %>%
+  select(rank, name) %>%
+  kable("html", col.names = c("Rank", "University Name")) %>%
+  kable_styling(
+    bootstrap_options = c("striped", "hover", "condensed"),
+    full_width = FALSE,
+    position = "center"
+  ) %>%
+  column_spec(1, bold = TRUE) %>%  
+  column_spec(2, bold = TRUE, color = "red")  
+```
+
+The University of Oxford has held the top spot in the Times Higher Education (THE) World University Rankings for nine years in a row (2017–2025), in contrast to other universities whose rankings fluctuate frequently over time. Founded as early as 1096, Oxford is the second oldest university still in existence and the oldest university in the English-speaking world. Located in the ancient city heart of Oxford, it has 44 colleges, more than 100 libraries (the largest library system in the UK), and over 22,000 students, of whom over 40% are foreign and represent 140 countries (TimesHighEducation) [@the2024].
+
+
+
+## Top Countries by Number of High-Ranked Universities
+
+
+```{r}
+#| label: fig-top-countries
+#| fig-cap: "Top Countries by Number of High-Ranked Universities"
+top_countries <- top_150_universities %>%
+  filter(rank <= 150) %>%  
+  group_by(location) %>%
+  summarize(total_top_universities = n()) %>%
+  arrange(desc(total_top_universities))
+
+ggplot(top_countries, aes(x = reorder(location, total_top_universities), 
+                          y = total_top_universities, 
+                          fill = location)) +
+  geom_bar(stat = "identity", show.legend = FALSE) +
+  labs(title = "Top Countries by Number of High-Ranked Universities",
+       x = "Country",
+       y = "Number of Top Universities") +
+  coord_flip() +
+  theme_minimal()
+
+```
+
+
+Given that they have most of the top 150 colleges, countries like the United States and the United Kingdom dominate higher education, as this bar chart shows. This is in line with their long-standing commitments to global outreach, research infrastructure, and academic quality. As an indication of their increased competitiveness on the global scene, emerging Asian nations like China and Singapore are likewise expanding their footprint.
+This distribution implies that access to excellent resources and a variety of academic settings may be possible while studying in countries with a greater concentration of prestigious universities.Institutions in developing nations should also take advantage of this trend to encourage cross-border cooperation and draw in more foreign talent. Last but not least, countries looking to raise their rankings need to think about boosting financing for research and offering incentives for collaborations with highly regarded universities.
+
+
+
+The bar graph titled illustrates the geographical distribution of the top 150 universities worldwide. The United States leads by a wide margin, housing the highest number of top-ranked universities, which underscores its robust investment in research, education, and world-class infrastructure. Following the United States, the United Kingdom and Germany secure the second and third positions, respectively, reflecting their strong higher education systems and international reputation.
+
+Other European countries, such as the Netherlands, Switzerland, Sweden, France, and Denmark, also feature prominently, emphasizing Europe's well-established focus on academic excellence and innovation. In Asia, China, Hong Kong, South Korea, and Japan represent the region’s growing prominence in higher education, driven by significant investments in research and global competitiveness. Meanwhile, Australia and Canada showcase their commitment to fostering high-quality education and attracting international talent.
+
+Smaller yet significant contributions come from countries like Singapore, Belgium, and Norway, highlighting the global diversity of high-ranking institutions. However, the chart also reveals stark regional disparities, with some regions, such as Africa and South America, notably absent from the list. This distribution reflects global trends in education, where wealthier nations dominate due to their resources and investments in research and innovation. The findings suggest a need for emerging economies to enhance their investment in higher education and foster collaborations to compete more effectively on a global scale.
+
+
+
+## The Highest Ranked University by Country
+```{r}
+#| label: fig-top-per-country
+#| fig-cap: "Top Countries by Number of High-Ranked Universities"
+top_by_country <- top_150_universities %>%
+  filter(rank <= 150) %>%       
+  group_by(location) %>%        
+  filter(rank == min(rank)) %>% 
+  ungroup()
+
+p <- ggplot(top_by_country, aes(
+    x = reorder(name, -rank),
+    y = rank,
+    fill = location,
+    text = paste("Country: ", location, "<br>University: ", name, "<br>Rank: ", rank)
+  )) +
+  geom_bar(stat = "identity") +
+  coord_flip() +  
+  labs(
+    title = "Top Ranked Universities by Country",
+    x = "University",
+    y = "Rank (Lower is Better)",
+    fill = "Country"
+  ) +
+  theme_minimal() +
+  theme(axis.text.y = element_text(size = 10))  
+
+interactive_plot <- ggplotly(p, tooltip = "text")
+
+interactive_plot
+
+
+```
+
+The top-ranked universities of different countries are highlighted in this visual, including the University of Tokyo in Japan, the Massachusetts Institute of Technology (MIT) in the US, and the University of Oxford in the UK. It also includes exceptional examples, such as the University of Sharjah, which is in the forefront of international outlooks. These universities are not just leaders in academia but also representations of national pride.
+Students can frequently gain access to existing networks and internationally recognised universitie by selecting the top-ranked university in their nation. Diversifying strengths outside their core metrics, like research or internationa outlook, should be the primary aim of national leaders in order to sustain their dominance. While supporting top universities can improve a countries' standing in the world of academia, fostering other universities is just as crucial for a well-rounded educational system.
+
+
+
+## Regional Insights: Strengths across Countries
+
+```{r}
+world <- ne_countries(scale = "medium", returnclass = "sf")
+
+world_university_rankings_2025 <- world_university_rankings_2025 %>%
+  mutate(location_standardized = case_when(
+    tolower(location) %in% c("usa", "us", "united states") ~ "united states of america", 
+    tolower(location) == "russian federation" ~ "russia", 
+    TRUE ~ tolower(location)  
+  ))
+
+world$name <- as.character(world$name)
+world_university_rankings_2025$location <- as.character(world_university_rankings_2025$location)
+
+world$name_lower <- tolower(world$name)
+
+
+unmatched <- setdiff(world_university_rankings_2025$location_standardized, world$name_lower)
+
+
+world_university_rankings_2025$scores_overall <- as.numeric(as.character(world_university_rankings_2025$scores_overall))
+
+
+world_university_rankings_2025$location_standardized <- tolower(world_university_rankings_2025$location_standardized)
+
+
+country_summary <- world_university_rankings_2025 %>%
+  group_by(location_standardized) %>%
+  summarise(average_score = mean(scores_overall, na.rm = TRUE)) %>%
+  filter(!is.na(average_score))  
+
+
+world$name <- tolower(world$name)
+
+
+world_with_scores <- world %>%
+  left_join(country_summary, by = c("name" = "location_standardized"))
+```
+
+```{r}
+#| label: fig-map-countries
+#| fig-cap: "Regional Insights"
+
+world_university_rankings_2025 <- world_university_rankings_2025 %>%
+  mutate(
+    scores_teaching = as.numeric(as.character(scores_teaching)),
+    scores_research = as.numeric(as.character(scores_research)),
+    scores_citations = as.numeric(as.character(scores_citations)),
+    scores_industry_income = as.numeric(as.character(scores_industry_income)),
+    scores_international_outlook = as.numeric(as.character(scores_international_outlook))
+  )
+
+
+country_summary_metrics <- world_university_rankings_2025 %>%
+  group_by(location_standardized) %>%
+  summarise(
+    avg_teaching = mean(scores_teaching, na.rm = TRUE),
+    avg_research = mean(scores_research, na.rm = TRUE),
+    avg_citations = mean(scores_citations, na.rm = TRUE),
+    avg_industry_income = mean(scores_industry_income, na.rm = TRUE),
+    avg_international_outlook = mean(scores_international_outlook, na.rm = TRUE)
+  ) %>%
+  filter(
+    !is.na(avg_teaching), !is.na(avg_research),
+    !is.na(avg_citations), !is.na(avg_industry_income),
+    !is.na(avg_international_outlook)
+  )
+
+
+world <- ne_countries(scale = "medium", returnclass = "sf") %>%
+  mutate(name = tolower(name))
+
+
+world_with_metrics <- world %>%
+  left_join(country_summary_metrics, by = c("name" = "location_standardized"))
+
+
+palette <- colorNumeric("plasma", domain = NULL)
+
+
+interactive_map <- leaflet(world_with_metrics) %>%
+  addTiles() %>%
+  addPolygons(
+    fillColor = ~palette(avg_teaching),
+    weight = 1,
+    color = "white",
+    fillOpacity = 0.7,
+    group = "Teaching",
+    popup = ~paste0("<strong>Country:</strong> ", name, "<br>",
+                    "<strong>Avg Teaching:</strong> ", round(avg_teaching, 2))
+  ) %>%
+  addPolygons(
+    fillColor = ~palette(avg_research),
+    weight = 1,
+    color = "white",
+    fillOpacity = 0.7,
+    group = "Research",
+    popup = ~paste0("<strong>Country:</strong> ", name, "<br>",
+                    "<strong>Avg Research:</strong> ", round(avg_research, 2))
+  ) %>%
+  addPolygons(
+    fillColor = ~palette(avg_citations),
+    weight = 1,
+    color = "white",
+    fillOpacity = 0.7,
+    group = "Citations",
+    popup = ~paste0("<strong>Country:</strong> ", name, "<br>",
+                    "<strong>Avg Citations:</strong> ", round(avg_citations, 2))
+  ) %>%
+  addPolygons(
+    fillColor = ~palette(avg_industry_income),
+    weight = 1,
+    color = "white",
+    fillOpacity = 0.7,
+    group = "Industry Income",
+    popup = ~paste0("<strong>Country:</strong> ", name, "<br>",
+                    "<strong>Avg Industry Income:</strong> ", round(avg_industry_income, 2))
+  ) %>%
+  addPolygons(
+    fillColor = ~palette(avg_international_outlook),
+    weight = 1,
+    color = "white",
+    fillOpacity = 0.7,
+    group = "International Outlook",
+    popup = ~paste0("<strong>Country:</strong> ", name, "<br>",
+                    "<strong>Avg International Outlook:</strong> ", round(avg_international_outlook, 2))
+  ) %>%
+  addLayersControl(
+    baseGroups = c("Teaching", "Research", "Citations", "Industry Income", "International Outlook"),
+    options = layersControlOptions(collapsed = FALSE)
+  ) %>%
+  addLegend(
+    pal = palette,
+    values = ~avg_teaching,
+    title = "Score",
+    position = "bottomright"
+  )
+
+
+interactive_map
+
+```
+
+The choropleth map provides a regional overview of strengths across metrics. North America and Europe dominate in teaching and countries like Germany, Sweeden, Netherlands dominate in research, reflecting their well-established academic systems and funding for knowledge creation. North America, Nort and Western Europe, and Australia's dominance in citation shows that these countries' research output is widely recognized and influential. In industry Income, we can see China also rising along with Australia, Cana, North America, but Europe excels in this metric. East and Western Europe, Canada and some Asian countries' dominance in international outlook showcases its ability to attract global talent, particularly in countries like the UAE, Denamark and Netherlands.
+
+
+# What It Takes to Be a Top Performer
+
+
+
+## Universities that rank the first in each metric. 
+
+
+```{r}
+#| label: fig-top-by-metric
+#| fig-cap: "Top universities by metric"
+
+top_universities_by_metric <- world_university_rankings_2025 %>%
+  pivot_longer(
+    cols = ends_with("_rank"),
+    names_to = "Metric",
+    values_to = "Rank"
+  ) %>%
+  filter(Rank == 1) %>%
+  select(name, Metric) %>%
+  arrange(name)
+
+metric_mapping <- c(
+  "scores_teaching_rank" = "Teaching",
+  "scores_research_rank" = "Research",
+  "scores_citations_rank" = "Citations",
+  "scores_industry_income_rank" = "Industry Income",
+  "scores_international_outlook_rank" = "International Outlook"
+)
+
+top_universities_by_metric <- top_universities_by_metric %>%
+  mutate(Metric = recode(Metric, !!!metric_mapping))  
+
+
+top_universities_by_metric  %>%
+  kable("html", col.names = c("University Name", "Top Metric")) %>%
+  kable_styling(
+    bootstrap_options = c("striped", "hover", "condensed"),  
+    full_width = FALSE,  
+    position = "center"  
+  ) %>%
+  column_spec(1, bold = TRUE) %>%  
+  row_spec(0, background = "red", color = "white")  
+
+```
+
+
+Universities such as Ajman University (International Outlook), the University of Oxford (Teaching), and MIT (Research) demonstrate how specialised capabilities can result in international recognition. Interestingly, despite having a lower total ranking, Ajman University excels in international outlooks, demonstrating that tiny universities can become well-known by concentrating on a specific area.
+Students can meet their goals by selecting a university that does exceptionally well in a metric that is in line with their goals (for example, international outlook for global exposure). Encouraging specialization among universities can diversify a country’s academic offerings and boost its higher education industry.
+
+
+
+## Specialization vs. Balance
+
+
+
+```{r}
+#| label: fig-bal-spec
+#| fig-cap: "Specialization vs. Balance"
+top_universities_by_metric_extended <- top_universities_by_metric %>%
+  left_join(world_university_rankings_2025, by = "name") %>%
+  select(
+    name,
+    teaching_rank = scores_teaching_rank,
+    research_rank = scores_research_rank,
+    citations_rank = scores_citations_rank,
+    industry_income_rank = scores_industry_income_rank,
+    international_outlook_rank = scores_international_outlook_rank
+  )
+
+
+top_universities_scores_parallel <- top_universities_by_metric_extended %>%
+  mutate(across(teaching_rank:international_outlook_rank, ~ 100 - .))
+
+ggparcoord(
+  data = top_universities_scores_parallel,
+  columns = 2:6,              
+  groupColumn = 1,            
+  scale = "std",              
+  showPoints = TRUE,          
+  alphaLines = 0.5,           
+  title = "Top Universities by Metric"
+) +
+  theme_minimal() +
+  labs(x = "Metrics", y = "Rank") +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1) 
+  )
+```
+
+This coordinates plot shows Top universities' strategies : specialisation in a few measures (e.g., Ajman University) against balanced performance across metrics (e.g., University of Oxford). The importance of both tactics in reaching high ranks is highlighted by this graph.
+For well-rounded education, consider balanced universities, but for specialist skills, specialized universities could be better suited. Retaining competitiveness in rankings requires finding the ideal balance between overall performance and specialisation. Universities' international position can be improved by considering policies that are specific to their strengths and weakness, such as research funding or teaching.
+
+
+
+
+## A Comparative View of Scores and Rankings
+
+```{r}
+#| label: fig-score-rank
+#| fig-cap: "Score vs Ranks"
+
+long_data <- top_150_universities %>%
+  select(rank, name, scores_teaching, scores_research, scores_citations, 
+         scores_industry_income, scores_international_outlook) %>%
+  pivot_longer(cols = starts_with("scores_"), 
+               names_to = "Metric", 
+               values_to = "Score") %>%
+  mutate(Metric = recode(Metric,
+                        scores_teaching = "Teaching",
+                        scores_research = "Research",
+                        scores_citations = "Citations",
+                        scores_industry_income = "Industry Income",
+                        scores_international_outlook = "International Outlook"))
+
+scatter_plot <- plot_ly(
+  data = long_data,
+  x = ~Score,               
+  y = ~rank,                
+  color = ~Metric,          
+  type = "scatter",
+  mode = "markers",
+  text = ~paste("University: ", name, 
+                "<br>Metric: ", Metric, 
+                "<br>Score: ", Score, 
+                "<br>Rank: ", rank),  
+  hoverinfo = "text"
+) %>%
+  layout(
+    title = "University Scores by Metric and Rank",
+    xaxis = list(title = "Score"),
+    yaxis = list(
+      title = "University Rank (Lower is Better)",
+      range = c(150, 0),  
+      dtick = 10           
+    ),
+    legend = list(title = list(text = "Metric"))
+  )
+
+scatter_plot
+```
+ 
+
+ 
+This visualization compares the scores of the top 150 universities across five key metrics (Teaching, Research, Citations, Industry Income, and International Outlook) with their ranks. The clustering and spread of data points reveal interesting patterns about the relationship between each metric and overall university rank.  
+ 
+   Many universities have citation and industry income scores in the 80–100 range, which causes their corresponding dots to form vertical clusters on the axes. This pattern indicates that attaining high scores in these metric may not be big for rank and is quite typical among the best universities. For example, Kyoto University ranks lower in citations (58.7) but remains in 55th place overall. In a similar way, the London School of Economics and Political Science ranks 50th overall but has the lowest industry income score of 45.1 among the top 150 universities. Universities can still perform well overall by performing well in other categories, even though high citation and industry income ratings indicate great research quality and industry partnership. 
+ 
+   Scores for international outlook at universities vary widely, from the 40s to the high 90s, and there is no obvious trend of relationship with rank. Notably, Tsinghua University ranks 12th, while only scoring 49.8 in international outlook, indicating that a strong emphasis on teaching and research can make up for better ratings.  While having a strong international perspective might help an institution attract staff and students from around the world, it doesn't play a part for the university to rank well.  
+
+   On the other hand, there is a clear positive association between rank and research and teaching scores. Better rankings are correlated with higher scores in these metrics, highlighting their crucial significance in assessing universities. Universities like MIT and the University of Oxford, for instance, are highly regarded because of their excellence in both teaching and research. The two most important areas for universities to focus on are teaching and research, which continue to be the major foundations of university rankings.  
+
+
+
+
+# Conclusion
+  
+The complexity of academic success is highlighted by the study of the Times Higher Education World University Rankings. Citations, Industry Income, and International Outlook provide possibilities for specialisation and distinctive institutional capabilities, but teaching and research stand out as the most important measures for attaining top rankings. The report emphasises that for universities hoping to attain long-term greatness, a balanced performance across criteria is still essential. 
+
+Students can concentrate on universities that fit their own priorities. Take into account institutions with a good international focus or industrial income scores if employability or global exposure are your top priorities. Give priority to universities with strong teaching and research scores if you want overall academic quality. University administrators should be aware that in order for their institutions to rise in the rankings, they must strike a balance between research and teaching while utilising their strengths in international partnerships and citations. Furthermore, national policies should be strengthened to encourage high-quality instruction, and research funding is essential to raising university rankings internationally. Performance and visibility can be further increased by fostering global alliances and strengthening industry connections.  
+
+For practical reasons, THEWUR groups institutions that are ranked higher than 150th in intervals such as "201–250" to handle the little variations in scores at these levels. Stakeholders must be mindful of the inherent limitations in precision when interpreting these intervals [@the2024].
+
+To sum up, these rankings are a useful tool for assessing institutional performance, but their real value comes from the way they influence choices and expansion plans. Stakeholders can confidently and purposefully negotiate the intricacies of international university rankings by using the insights provided by this investigation.
+
+
+
+## Reference {.appendix}
+
+\listoffigures
+
+
+
+

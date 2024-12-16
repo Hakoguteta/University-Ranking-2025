@@ -1,0 +1,568 @@
+---
+title: "World University Ranking 2025"
+author: Honorine Akoguteta,
+        Simon Addae,
+        Nastaran Mesgari.
+knitr:
+  opts_chunk:
+    echo: false  
+    message: false
+    warning: false
+format: 
+  revealjs:
+    slide-number: true
+    progress: true
+    transition: "slide"
+    theme: default
+    css: custom.css
+---
+
+
+
+![](logo_the_1.png){.center}
+
+
+::: {.incremental}
+1. A global performance table evaluating research-intensive universities.
+
+2. Established in 2004
+
+3. Assess universities based on their core missions: teaching, research environment, research quality, international outlook, and industry income.
+:::
+
+# Why Our Study Matters
+::: {.incremental}
+By offering insights into teaching quality, research output, international collaboration, and industry engagement, the our study aims to:
+
+1. Assist students in making informed decisions about their education.
+2. Help universities identify strengths and areas for improvement.
+3. Provide policymakers with data to support educational strategies.
+4. Foster competition among institutions to enhance over
+::: 
+
+# Audience Description
+
+- University Administrators
+
+- Policy Makers in Higher Education 
+
+- Prospective International Students
+
+```{r}
+#| label: packages
+#| message: false
+
+# These are the packages used in the report
+library(tidyverse)  
+library(readr)      
+library(ggplot2) 
+library(dbplyr)
+library(plotly)
+library(tidyr)
+library(reshape2)
+library(corrplot)
+library(sf)
+library(rnaturalearth)
+library(rnaturalearthdata)
+library(GGally)
+library(leaflet)
+library(fmsb)
+library(ggradar)
+library(kableExtra)
+```
+
+
+```{r}
+world_university_rankings_2025 <- read_csv("world_university_rankings_2025.csv")
+```
+
+```{r}
+#| echo: false
+
+top_150_universities <- world_university_rankings_2025 %>%
+  mutate(
+    rank = as.numeric(gsub("[^0-9]", "", rank)), 
+    scores_overall = as.numeric(scores_overall),
+    scores_teaching = as.numeric(scores_teaching),
+    scores_research = as.numeric(scores_research),
+    scores_citations = as.numeric(scores_citations),
+    scores_industry_income = as.numeric(scores_industry_income),
+    scores_international_outlook = as.numeric(scores_international_outlook),
+    stats_number_students = as.numeric(gsub(",", "", stats_number_students)), 
+    stats_student_staff_ratio = as.numeric(stats_student_staff_ratio)
+  )  
+```
+
+
+
+
+
+# Key Metrics {.smaller}
+::: {.incremental}
+1. **Teaching**
+Assesses the learning environment at universities. A strong teaching score indicates a university's commitment to providing quality education and support for its students.
+
+2. **Research Environment**
+Evaluates the university's research capacity and environment. A robust research environment reflects a university's ability to support high-quality research activities and attract funding.
+
+3. **Research Quality**
+Measures the quality of research produced by the institution. High scores in this area indicate that a university's research output is widely recognized and influential within the academic community.
+
+4. **International Outlook**
+Assesses the university's ability to attract international students and staff, as well as its global collaborations. This reflects a diverse academic community and the institution's engagement with global educational networks.
+
+5. **Industry Income**
+Measures the university's ability to generate income from industry partnerships and knowledge transfer activities. It indicates how effectively an institution engages with businesses and contributes to economic development through research and innovation.
+:::
+
+# Unlocking the Secrets Behind World University Rankings
+
+---
+
+## Weighted Scores 
+
+
+```{r}
+metric_weights <- data.frame(
+  Metric = c("Teaching", "Research Environment", "Research Quality", "International Outlook", "Industry Income"),
+  Weight = c(29.5, 29, 30, 7.5, 4)
+)
+
+
+donut_chart <- plot_ly(
+  metric_weights,
+  labels = ~Metric,
+  values = ~Weight,
+  type = 'pie',
+  hole = 0.5,  # Creates the "donut" effect
+  textinfo = "label+percent",
+  hoverinfo = "label+value"
+) %>%
+  layout(
+    title = "Weights of Metrics in University Rankings",
+    showlegend = TRUE
+  )
+
+donut_chart
+```
+::: footer
+Visualization: A donut chart showing the weight distribution of each metric. This visually illustrates that teaching, research, and citations dominate the ranking calculation. It emphasizes the importance of each metric and highlights that balance is key for higher overall rankings.
+:::
+
+---
+
+## Normalization
+
+- Scores are normalized to account for differences in publication volume and citation practices across disciplines and countries.
+- Normalization processes ensure that scores from different categories are transformed into a common scale before being combined into an overall score.
+- After normalization, the scores from each category are multiplied by their respective weights and then summed to produce an overall score for each metric then the institution.
+- This ensures that institutions, different metrics and categories are comparable and fair.
+
+---
+
+## How is the Data Collected?
+
+- Institutional Data
+- Bibliometric Data: Elsevier 
+- Academic Reputation Survey
+- Reference Datasets: World Bank, UNESCO, HM Revenue and Customs etc
+- Quality Assurance Measures
+
+---
+
+## A Glimpse in the Raw Data
+
+```{r}
+print(top_150_universities)
+```
+
+
+```{r}
+
+top_10_universities <- head(top_150_universities, 10) %>%
+  arrange(rank)
+```
+	
+
+## {auto-animate=true autoslide=200} 
+
+Top 10 Universities in 2025  
+
+::: {.incremental .smaller style="margin-top: 20px; font-size: 0.5em; color: red;"}
+1. **University of Oxford**  
+2. **Massachusetts Institute of Technology**  
+3. **Harvard University**  
+4. **Princeton University**  
+5. **University of Cambridge**  
+6. **Stanford University **  
+7. **California Institute of Technology**  
+8. **University of California, Berkeley**  
+9. **Imperial College London**  
+10. **Yale University**  
+:::
+
+## Top Countries by Number of High-Ranked Universities
+
+
+```{r}
+top_countries <- top_150_universities %>%
+  filter(rank <= 150) %>%  
+  group_by(location) %>%
+  summarize(total_top_universities = n()) %>%
+  arrange(desc(total_top_universities))
+
+ggplot(top_countries, aes(x = reorder(location, total_top_universities), 
+                          y = total_top_universities, 
+                          fill = location)) +
+  geom_bar(stat = "identity", show.legend = FALSE) +
+  labs(title = "Top Countries by Number of High-Ranked Universities",
+       x = "Country",
+       y = "Number of Top Universities") +
+  coord_flip() +
+  theme_minimal()
+
+```
+
+::: footer
+Visualization: A horizontal bar chart that shows the global distribution of academic excellence. It highlighta countries dominating higher education
+:::
+
+
+## The Highest Ranked University by Country
+```{r}
+top_by_country <- top_150_universities %>%
+  filter(rank <= 150) %>%       
+  group_by(location) %>%        
+  filter(rank == min(rank)) %>% 
+  ungroup()
+
+p <- ggplot(top_by_country, aes(
+    x = reorder(name, -rank),
+    y = rank,
+    fill = location,
+    text = paste("Country: ", location, "<br>University: ", name, "<br>Rank: ", rank)
+  )) +
+  geom_bar(stat = "identity") +
+  coord_flip() +  
+  labs(
+    title = "Top Ranked Universities by Country",
+    x = "University",
+    y = "Rank (Lower is Better)",
+    fill = "Country"
+  ) +
+  theme_minimal() +
+  theme(axis.text.y = element_text(size = 10))  
+
+interactive_plot <- ggplotly(p, tooltip = "text")
+
+interactive_plot
+
+
+```
+
+
+::: footer
+Visualization: A horizontal bar chart that shows the top_ranked univversity in each country.
+:::
+
+
+
+## Regional Insights: Strengths across Countries
+
+```{r}
+world <- ne_countries(scale = "medium", returnclass = "sf")
+
+top_150_universities <- top_150_universities %>%
+  mutate(location_standardized = case_when(
+    tolower(location) %in% c("usa", "us", "united states") ~ "united states of america", 
+    tolower(location) == "russian federation" ~ "russia", 
+    TRUE ~ tolower(location)  # Convert other locations to lowercase
+  ))
+
+world$name <- as.character(world$name)
+top_150_universities$location <- as.character(top_150_universities$location)
+
+world$name_lower <- tolower(world$name)
+
+
+unmatched <- setdiff(top_150_universities$location_standardized, world$name_lower)
+
+
+top_150_universities$scores_overall <- as.numeric(as.character(top_150_universities$scores_overall))
+
+
+top_150_universities$location_standardized <- tolower(top_150_universities$location_standardized)
+
+
+country_summary <- top_150_universities %>%
+  group_by(location_standardized) %>%
+  summarise(average_score = mean(scores_overall, na.rm = TRUE)) %>%
+  filter(!is.na(average_score))  # Remove rows with NA average_score
+
+
+world$name <- tolower(world$name)
+
+
+world_with_scores <- world %>%
+  left_join(country_summary, by = c("name" = "location_standardized"))
+```
+
+```{r}
+
+top_150_universities <- top_150_universities %>%
+  mutate(
+    scores_teaching = as.numeric(as.character(scores_teaching)),
+    scores_research = as.numeric(as.character(scores_research)),
+    scores_citations = as.numeric(as.character(scores_citations)),
+    scores_industry_income = as.numeric(as.character(scores_industry_income)),
+    scores_international_outlook = as.numeric(as.character(scores_international_outlook))
+  )
+
+
+country_summary_metrics <- top_150_universities %>%
+  group_by(location_standardized) %>%
+  summarise(
+    avg_teaching = mean(scores_teaching, na.rm = TRUE),
+    avg_research = mean(scores_research, na.rm = TRUE),
+    avg_citations = mean(scores_citations, na.rm = TRUE),
+    avg_industry_income = mean(scores_industry_income, na.rm = TRUE),
+    avg_international_outlook = mean(scores_international_outlook, na.rm = TRUE)
+  ) %>%
+  filter(
+    !is.na(avg_teaching), !is.na(avg_research),
+    !is.na(avg_citations), !is.na(avg_industry_income),
+    !is.na(avg_international_outlook)
+  )
+
+
+world <- ne_countries(scale = "medium", returnclass = "sf") %>%
+  mutate(name = tolower(name))
+
+
+world_with_metrics <- world %>%
+  left_join(country_summary_metrics, by = c("name" = "location_standardized"))
+
+
+palette <- colorNumeric("plasma", domain = NULL)
+
+
+interactive_map <- leaflet(world_with_metrics) %>%
+  addTiles() %>%
+  addPolygons(
+    fillColor = ~palette(avg_teaching),
+    weight = 1,
+    color = "white",
+    fillOpacity = 0.7,
+    group = "Teaching",
+    popup = ~paste0("<strong>Country:</strong> ", name, "<br>",
+                    "<strong>Avg Teaching:</strong> ", round(avg_teaching, 2))
+  ) %>%
+  addPolygons(
+    fillColor = ~palette(avg_research),
+    weight = 1,
+    color = "white",
+    fillOpacity = 0.7,
+    group = "Research",
+    popup = ~paste0("<strong>Country:</strong> ", name, "<br>",
+                    "<strong>Avg Research:</strong> ", round(avg_research, 2))
+  ) %>%
+  addPolygons(
+    fillColor = ~palette(avg_citations),
+    weight = 1,
+    color = "white",
+    fillOpacity = 0.7,
+    group = "Citations",
+    popup = ~paste0("<strong>Country:</strong> ", name, "<br>",
+                    "<strong>Avg Citations:</strong> ", round(avg_citations, 2))
+  ) %>%
+  addPolygons(
+    fillColor = ~palette(avg_industry_income),
+    weight = 1,
+    color = "white",
+    fillOpacity = 0.7,
+    group = "Industry Income",
+    popup = ~paste0("<strong>Country:</strong> ", name, "<br>",
+                    "<strong>Avg Industry Income:</strong> ", round(avg_industry_income, 2))
+  ) %>%
+  addPolygons(
+    fillColor = ~palette(avg_international_outlook),
+    weight = 1,
+    color = "white",
+    fillOpacity = 0.7,
+    group = "International Outlook",
+    popup = ~paste0("<strong>Country:</strong> ", name, "<br>",
+                    "<strong>Avg International Outlook:</strong> ", round(avg_international_outlook, 2))
+  ) %>%
+  addLayersControl(
+    baseGroups = c("Teaching", "Research", "Citations", "Industry Income", "International Outlook"),
+    options = layersControlOptions(collapsed = FALSE)
+  ) %>%
+  addLegend(
+    pal = palette,
+    values = ~avg_teaching,
+    title = "Score",
+    position = "bottomright"
+  )
+
+
+interactive_map
+
+```
+
+::: footer
+This choropleth world map displays how each region performs across the primary metrics and helps viewers identify regions of expertise, such as America or Europe’s high performance in research or Asia’s international outlook.
+:::
+
+
+
+# What It Takes to Be a Top Performer
+
+---
+
+## Universities that rank the first in each metric. 
+
+```{r}
+top_universities_by_metric <- world_university_rankings_2025 %>%
+  pivot_longer(
+    cols = ends_with("_rank"),
+    names_to = "Metric",
+    values_to = "Rank"
+  ) %>%
+  filter(Rank == 1) %>%
+  select(name, Metric) %>%
+  arrange(name)
+
+metric_mapping <- c(
+  "scores_teaching_rank" = "Teaching",
+  "scores_research_rank" = "Research",
+  "scores_citations_rank" = "Citations",
+  "scores_industry_income_rank" = "Industry Income",
+  "scores_international_outlook_rank" = "International Outlook"
+)
+
+top_universities_by_metric <- top_universities_by_metric %>%
+  mutate(Metric = recode(Metric, !!!metric_mapping))  
+
+
+top_universities_by_metric  %>%
+  kable("html", col.names = c("University Name", "Top Metric")) %>%
+  kable_styling(
+    bootstrap_options = c("striped", "hover", "condensed"),  
+    full_width = FALSE,  
+    position = "center"  
+  ) %>%
+  column_spec(1, bold = TRUE) %>%  
+  row_spec(0, background = "red", color = "white")  
+
+
+```
+
+::: footer
+Visualization: A table that lists stitutions setting benchmarks in teaching, research, citations, industry income, and international outlook
+:::
+
+## Specialization vs. Balance
+
+
+```{r}
+top_universities_by_metric_extended <- top_universities_by_metric %>%
+  left_join(world_university_rankings_2025, by = "name") %>%
+  select(
+    name,
+    teaching_rank = scores_teaching_rank,
+    research_rank = scores_research_rank,
+    citations_rank = scores_citations_rank,
+    industry_income_rank = scores_industry_income_rank,
+    international_outlook_rank = scores_international_outlook_rank
+  )
+
+top_universities_scores_parallel <- top_universities_by_metric_extended %>%
+  mutate(across(teaching_rank:international_outlook_rank, ~ 100 - .))
+
+ggparcoord(
+  data = top_universities_scores_parallel,
+  columns = 2:6,              
+  groupColumn = 1,            
+  scale = "std",              
+  showPoints = TRUE,          
+  alphaLines = 0.5,           
+  title = "Top Universities by Metric"
+) +
+  theme_minimal() +
+  labs(x = "Metrics", y = "Rank") +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1) 
+  )
+```
+
+::: footer
+A parallel coordinates plot comparing the rank where universities excel with their performance across other metrics. Showcase if top performance can result from either a balanced approach or specialization.
+:::
+
+## A Comparative View of Scores and Rankings
+
+```{r}
+long_data <- top_150_universities %>%
+  select(rank, name, scores_teaching, scores_research, scores_citations, 
+         scores_industry_income, scores_international_outlook) %>%
+  pivot_longer(cols = starts_with("scores_"), 
+               names_to = "Metric", 
+               values_to = "Score") %>%
+  mutate(Metric = recode(Metric,
+                        scores_teaching = "Teaching",
+                        scores_research = "Research",
+                        scores_citations = "Citations",
+                        scores_industry_income = "Industry Income",
+                        scores_international_outlook = "International Outlook"))
+
+scatter_plot <- plot_ly(
+  data = long_data,
+  x = ~Score,               
+  y = ~rank,                
+  color = ~Metric,          
+  type = "scatter",
+  mode = "markers",
+  text = ~paste("University: ", name, 
+                "<br>Metric: ", Metric, 
+                "<br>Score: ", Score, 
+                "<br>Rank: ", rank),  
+  hoverinfo = "text"
+) %>%
+  layout(
+    title = "University Scores by Metric and Rank",
+    xaxis = list(title = "Score"),
+    yaxis = list(
+      title = "University Rank (Lower is Better)",
+      range = c(150, 0),  
+      dtick = 10           
+    ),
+    legend = list(title = list(text = "Metric"))
+  )
+
+scatter_plot
+```
+
+::: footer
+Visualization: A Scater plot that illustrates the interconnectedness of metrics and rankings. Emphasize patterns like whether a high research score consistently leads to better ranks.
+:::
+
+
+# Conclusion
+
+  - Rankings are not just performance indicators but tools to guide decision-making and growth strategies.
+  - Teaching and research are the most critical metrics for achieving top rankings.
+  - Citations, industry income, and international outlook highlight opportunities for specialization and unique institutional strengths.
+  - Students should choose universities based on personal priorities among the key metrics 
+
+# cont.
+
+- **For University Administrators**: 
+  - Balance teaching and research to climb rankings while leveraging strengths in citations and international partnerships.
+  - Invest in global alliances and industry collaborations to enhance performance and visibility.
+
+- **For Policymakers**: 
+  - Strengthen national policies to improve teaching quality and provide more research funding.
+
+  
+
+# Thank you!
